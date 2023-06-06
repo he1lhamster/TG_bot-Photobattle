@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  web:
+    build: ./app
+    command: python3 main.py
+    volumes:
+    - ./app/:/usr/src/app
+    ports:
+    - 8000:8000
+    env_file:
+    - ./app/config.yml
+    depends_on:
+    - db
+    - rabbitmq
+    - poller
+    - sender
+  rabbitmq:
+    image: rabbitmq:management
+    build:
+      context: .
+      dockerfile: Dockerfile-rabbit
+    environment:
+      RABBITMQ_NODE_PORT: 5673
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+    ports:
+      - 5673:5673
+  db:
+    image: postgres
+    volumes:
+    - ./app/:/usr/src/app
+    # env_file:
+    # - ./env.dev.db
+    environment:
+      - POSTGRES_USER=kts_user
+      - POSTGRES_PASSWORD=kts_pass
+      - POSTGRES_DB=kts
+  poller:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: python3 poller.py
+    depends_on:
+      - rabbitmq
+    environment:
+      - AMQP_PORT=5673
+      - PYTHONUNBUFFERED=1
+      - BOT_TOKEN=5617018832:AAGD8rIf7dQsT12cOUzzVzgI6nTeNeeVWPc
+  sender:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: python3 sender.py
+    depends_on:
+      - rabbitmq
+    environment:
+      - AMQP_PORT=5673
+      - PYTHONUNBUFFERED=1
+      - BOT_TOKEN=5617018832:AAGD8rIf7dQsT12cOUzzVzgI6nTeNeeVWPc
+  manager:
+      build: 
+        context: .
+        dockerfile: Dockerfile
+      command: python3 manager.py
+      depends_on:
+        - rabbitmq
+      environment:
+        - AMQP_PORT=5673
+        - PYTHONUNBUFFERED=1
+volumes:
+  postgres_data:
